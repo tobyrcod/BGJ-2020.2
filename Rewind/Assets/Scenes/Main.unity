@@ -811,11 +811,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fallMultiplier: 2.5
   lowJumpMultiplier: 2
-  jumpForce: 4
-  speed: 7
-  slideSpeed: 1
-  horizontalRayCount: 0
-  verticalRayCount: 0
+  jumpForce: 7
+  speed: 10
+  slideSpeed: 2
+  horizontalRayCount: 4
+  verticalRayCount: 4
   collisions:
     up: 0
     down: 0
@@ -823,7 +823,7 @@ MonoBehaviour:
     right: 0
   collisionMask:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 256
 --- !u!61 &1822515712
 BoxCollider2D:
   m_ObjectHideFlags: 0

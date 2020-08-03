@@ -12,6 +12,8 @@ public class PlayerController : MonoBehaviour {
     const float gravityScale = -5f;
 
     bool wallGrab = false;
+    bool wallJumped = false;
+    bool canMove = true;
 
     [SerializeField] float fallMultiplier = 2.5f;
     [SerializeField] float lowJumpMultiplier = 2f;
@@ -52,11 +54,11 @@ public class PlayerController : MonoBehaviour {
         float y = Input.GetAxis("Vertical");
 
         Vector2 dir = new Vector2(x, y);
+        Walk(dir);
+
         if (collisions.OnGround) {
             velocity.y = 0f;
-            if (Input.GetKeyDown(KeyCode.Space)) {
-                Jump();
-            }
+            wallJumped = false;
         }
         else {
             //Apply Gravity
@@ -73,7 +75,16 @@ public class PlayerController : MonoBehaviour {
 
         if (collisions.OnWall && !collisions.OnGround) {
             //We are sliding on a wall;
-            velocity.y = -slideSpeed;
+            WallSlide();
+        }
+
+        if (Input.GetKeyDown(KeyCode.Space)) {
+            if (collisions.OnGround) {
+                Jump(Vector2.up);
+            }
+            else if (collisions.OnWall) {
+                WallJump();
+            }
         }
 
         wallGrab = collisions.OnWall && Input.GetKey(KeyCode.LeftShift);
@@ -81,26 +92,65 @@ public class PlayerController : MonoBehaviour {
             velocity.y = y * speed;
         }
 
-        Move(dir);
+        Move();
     }
 
-    private void Move(Vector2 dir) {
-        UpdateRaycastOrigins();
-
-        velocity = new Vector2(dir.x * speed, velocity.y);
-
+    private void Move() {
         float deltaX = MoveHorizontally(velocity.x * Time.fixedDeltaTime);
         float deltaY = MoveVertically(velocity.y * Time.fixedDeltaTime);
 
         transform.Translate(deltaX, deltaY, 0f);
     }
 
-    private void Jump() {
+    private void WallSlide() {
+        if (!canMove)
+            return;
+
+        int velDir = Math.Sign(velocity.x);
+        int wallDir = (collisions.right) ? 1 : -1;
+        bool pushingOnWall = velDir == wallDir;
+        float push = pushingOnWall ? 0 : velocity.x;
+
+        velocity = new Vector2(push, -slideSpeed);
+    }
+
+    private void Walk(Vector2 dir) {
+
+        if (!canMove)
+            return;
+
+        if (!wallJumped) {
+            velocity = new Vector2(dir.x * speed, velocity.y);
+        }
+        else {
+            velocity = Vector2.Lerp(velocity, new Vector2(dir.x * speed, velocity.y), 1f * Time.fixedDeltaTime);
+        }
+    }
+
+    private void Jump(Vector2 direction) {
         velocity.y = 0f;
-        velocity += Vector2.up * jumpForce;
+        velocity += direction * jumpForce;
+    }
+
+    private void WallJump() {
+        //StopCoroutine(DisableMovement(0f));
+        //StartCoroutine(DisableMovement(0.1f));
+
+        Vector2 wallDir = (collisions.right) ? Vector2.left : Vector2.right;
+        Jump(Vector2.up / 1.5f + wallDir / 1.5f);
+
+        wallJumped = true;
+    }
+
+    IEnumerator DisableMovement(float time) {
+        canMove = false;
+        yield return new WaitForSeconds(time);
+        canMove = true;
     }
 
     private void UpdateCollisionInfo() {
+        UpdateRaycastOrigins();
+
         RaycastHit2D hitUp = Physics2D.Raycast(raycastOrigins.topLeft + new Vector2(0f, skinWidth * 2f), Vector2.right, (hitbox2D.bounds.size.y - skinWidth * 2f), collisionMask);
         RaycastHit2D hitDown = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(0f, skinWidth * 2f), Vector2.right, (hitbox2D.bounds.size.y - skinWidth * 2f), collisionMask);
         RaycastHit2D hitLeft = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(skinWidth * 2, 0f), Vector2.up, (hitbox2D.bounds.size.x - skinWidth * 2f), collisionMask);
@@ -193,16 +243,5 @@ public class PlayerController : MonoBehaviour {
         public bool up, down, left, right;
         public bool OnGround { get { return down; } }
         public bool OnWall { get { return left || right; } }
-    }
-
-    private void OnDrawGizmos() {
-        //DebugCorners(Color.blue);
-    }
-    private void DebugCorners(Color color) {
-        Gizmos.color = color;
-        Gizmos.DrawSphere(raycastOrigins.bottomLeft, 0.1f);
-        Gizmos.DrawSphere(raycastOrigins.bottomRight, 0.1f);
-        Gizmos.DrawSphere(raycastOrigins.topLeft, 0.1f);
-        Gizmos.DrawSphere(raycastOrigins.topRight, 0.1f);
     }
 }
