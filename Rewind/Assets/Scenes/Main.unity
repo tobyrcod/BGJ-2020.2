@@ -308,7 +308,7 @@ Transform:
   m_LocalScale: {x: 1, y: 21.1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 4
+  m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &455590866
 GameObject:
@@ -416,7 +416,7 @@ Transform:
   m_LocalScale: {x: 18.32, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 3
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &472998659
 GameObject:
@@ -482,7 +482,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 5
+  m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &474354627
 GameObject:
@@ -554,7 +554,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 0
+  m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &542543603
 GameObject:
@@ -664,12 +664,12 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 542543603}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -0.66}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.88, y: -6.87, z: -0.66}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
-  m_Father: {fileID: 1822515713}
-  m_RootOrder: 1
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &894283575
 GameObject:
@@ -777,7 +777,7 @@ Transform:
   m_LocalScale: {x: 1, y: 21.1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 2
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1822515710
 GameObject:
@@ -809,11 +809,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8106a753a8574284f89530ce820ec606, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fallMultiplier: 2.5
-  lowJumpMultiplier: 2
-  jumpForce: 7
+  gravityScale: -15
+  fallMultiplier: 3
+  lowJumpMultiplier: 5
   speed: 10
-  slideSpeed: 2
+  slideDownSpeedMax: 5
+  slideUpSpeedMax: 6
+  wallStickTime: 0.5
+  standingJump:
+    direction: {x: 0, y: 1}
+    force: 10
+  wallJumpClimb:
+    direction: {x: 15, y: 8}
+    force: 30
+  wallJumpOff:
+    direction: {x: 8.5, y: 7}
+    force: 10
+  wallLeap:
+    direction: {x: 10, y: 10}
+    force: 10
+  wallLerpSpeed: 6
+  noInputLerpSpeed: 3
+  frameDelay: 12
+  velXThreshold: 0.5
+  dragScale: 0
+  velocity: {x: 0, y: 0}
   horizontalRayCount: 4
   verticalRayCount: 4
   collisions:
@@ -858,11 +878,10 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1822515710}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: -10.2, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 97290692}
-  - {fileID: 542543607}
   m_Father: {fileID: 0}
-  m_RootOrder: 1
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

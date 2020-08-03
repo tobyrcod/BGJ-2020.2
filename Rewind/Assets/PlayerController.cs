@@ -3,37 +3,66 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UIElements;
 
 public class PlayerController : MonoBehaviour {
 
     const float skinWidth = 0.015f;
     const float minRayLength = skinWidth * 2;
-    const float gravityScale = -5f;
+    const float maxDrag = 10;
+    [SerializeField] float gravityScale = -9.8f;
+
+    [Space]
 
     bool wallGrab = false;
-    bool wallJumped = false;
+    bool wallSliding = false;
+    bool wallSlidingDown = true;
     bool canMove = true;
+    bool hasFullControl = true;
 
     [SerializeField] float fallMultiplier = 2.5f;
     [SerializeField] float lowJumpMultiplier = 2f;
 
     [Space]
 
-    [SerializeField] float jumpForce = 4f;
-    [SerializeField] float speed = 7f;
-    [SerializeField] float slideSpeed = 1f;
-    private Vector2 velocity;
+    [SerializeField] float speed = 10f;
 
-    [SerializeField] float horizontalRayCount = 4f, verticalRayCount = 4f;
+    [Space]
+
+    [SerializeField] float slideDownSpeedMax = 5f;
+    [SerializeField] float slideUpSpeedMax = 2.5f;
+    [SerializeField] float wallStickTime = 0.25f;
+    float timeToWallUnstick;
+
+    [Space]
+
+    [SerializeField] JumpInfo standingJump;
+    [SerializeField] JumpInfo wallJumpClimb;
+    [SerializeField] JumpInfo wallJumpOff;
+    [SerializeField] JumpInfo wallLeap;
+
+    [Space]
+
+    [SerializeField] float wallLerpSpeed = 10f;
+    [SerializeField] float noInputLerpSpeed = 3f;
+    [SerializeField] float frameDelay = 10f;
+    [SerializeField] float velXThreshold = 0.05f;
+    [SerializeField] [Range(0, 10)] float dragScale;
+    [SerializeField] private Vector2 velocity;
+
+    [Space]
+
+    [SerializeField] float horizontalRayCount = 4f;
+    [SerializeField] float verticalRayCount = 4f;
     float horizontalRaySpacing, verticalRaySpacing;
 
     BoxCollider2D hitbox2D;
     RaycastOrigins raycastOrigins;
-    [SerializeField] CollisionInfo collisions;
-    
-    [Space]
 
+    [Space] 
+
+    [SerializeField] CollisionInfo collisions;
     [SerializeField] LayerMask collisionMask;
 
     private void OnValidate() {
@@ -44,6 +73,7 @@ public class PlayerController : MonoBehaviour {
     private void Start() {
         UpdateRaycastOrigins();
         CalculateRaySpacing();
+
         collisions = new CollisionInfo();
     }
 
@@ -52,13 +82,19 @@ public class PlayerController : MonoBehaviour {
 
         float x = Input.GetAxis("Horizontal");
         float y = Input.GetAxis("Vertical");
+        int rawX = (int)Input.GetAxisRaw("Horizontal");
+        int rawY = (int)Input.GetAxisRaw("Vertical");
+        float wallDirX = collisions.right ? 1 : -1;
 
-        Vector2 dir = new Vector2(x, y);
-        Walk(dir);
+        Vector2 input = new Vector2(x, y);
+        Walk(input, rawX);
+
+        wallSliding = false;
+        wallSlidingDown = false;
+        wallGrab = false;
 
         if (collisions.OnGround) {
-            velocity.y = 0f;
-            wallJumped = false;
+            velocity.y = 0;
         }
         else {
             //Apply Gravity
@@ -71,81 +107,160 @@ public class PlayerController : MonoBehaviour {
             else if (velocity.y > 0 && !Input.GetKey(KeyCode.Space)) {
                 velocity.y += gravityScale * Time.fixedDeltaTime * (lowJumpMultiplier - 1);
             }
-        }
 
-        if (collisions.OnWall && !collisions.OnGround) {
-            //We are sliding on a wall;
-            WallSlide();
+            if (collisions.OnWall) {
+
+                if (Input.GetKey(KeyCode.LeftShift)) {
+                    WallGrab(input.y);
+                }
+
+                if (!wallGrab) {
+                    //We are sliding on a wall;
+                    WallSlide(input.x, wallDirX);
+                }              
+            }
         }
 
         if (Input.GetKeyDown(KeyCode.Space)) {
-            if (collisions.OnGround) {
-                Jump(Vector2.up);
+            if (wallSlidingDown) {
+                WallJump(rawX, wallDirX);
             }
-            else if (collisions.OnWall) {
-                WallJump();
-            }
-        }
 
-        wallGrab = collisions.OnWall && Input.GetKey(KeyCode.LeftShift);
-        if (wallGrab) {
-            velocity.y = y * speed;
+            if (collisions.OnGround) {
+                Jump(standingJump);
+            }
         }
 
         Move();
     }
 
+    private void WallGrab(float moveDir) {
+        velocity.y = 0;
+        wallGrab = true;
+        velocity.y = moveDir * speed;
+    }
+
     private void Move() {
+
+        if (dragScale != 0) 
+            velocity = ApplyDrag(velocity);
+        
         float deltaX = MoveHorizontally(velocity.x * Time.fixedDeltaTime);
         float deltaY = MoveVertically(velocity.y * Time.fixedDeltaTime);
 
         transform.Translate(deltaX, deltaY, 0f);
     }
 
-    private void WallSlide() {
-        if (!canMove)
-            return;
-
-        int velDir = Math.Sign(velocity.x);
-        int wallDir = (collisions.right) ? 1 : -1;
-        bool pushingOnWall = velDir == wallDir;
-        float push = pushingOnWall ? 0 : velocity.x;
-
-        velocity = new Vector2(push, -slideSpeed);
+    private Vector2 ApplyDrag(Vector2 velocity) {
+        return velocity *= 1 - dragScale / maxDrag;
     }
 
-    private void Walk(Vector2 dir) {
+    private void WallSlide(float xInput, float wallDirX) {
 
         if (!canMove)
             return;
 
-        if (!wallJumped) {
-            velocity = new Vector2(dir.x * speed, velocity.y);
+        wallSliding = true;
+
+        if (velocity.y < 0) {
+            wallSlidingDown = true;
+
+            if (velocity.y < -slideDownSpeedMax) {
+                Debug.Log("Slow Down Speed");
+                velocity.y = -slideDownSpeedMax;
+            }
         }
         else {
-            velocity = Vector2.Lerp(velocity, new Vector2(dir.x * speed, velocity.y), 1f * Time.fixedDeltaTime);
+
+            if (velocity.y > slideUpSpeedMax) {
+                Debug.Log("Slow Up Speed");
+                velocity.y = slideUpSpeedMax;
+            }
+        }
+
+        if (timeToWallUnstick > 0) {
+
+            velocity.x = 0;
+
+            if (xInput != 0 && xInput != wallDirX) {
+                timeToWallUnstick -= Time.fixedDeltaTime;
+            }
+            else {
+                timeToWallUnstick = wallStickTime;
+            }
+        }
+        else {
+            timeToWallUnstick = wallStickTime;
         }
     }
 
-    private void Jump(Vector2 direction) {
-        velocity.y = 0f;
-        velocity += direction * jumpForce;
+    private void Walk(Vector2 input, int rawX) {
+
+        if (!canMove)
+            return;
+
+        if (wallGrab)
+            return;
+
+        if (hasFullControl) {
+            if (rawX != 0) {
+                velocity = new Vector2(input.x * speed, velocity.y);
+            }
+            else {         
+                velocity = Vector2.Lerp(velocity, new Vector2(0, velocity.y),  (speed - velocity.x + 1) / 7 * Time.fixedDeltaTime);
+
+                if (Mathf.Abs(velocity.x) < velXThreshold)
+                    velocity.x = 0;
+            }
+        }
+        else {
+
+            velocity = Vector2.Lerp(velocity, new Vector2(input.x * speed, velocity.y), wallLerpSpeed * Time.fixedDeltaTime);
+
+            if (Mathf.Abs(velocity.x) < velXThreshold)
+                velocity.x = 0;
+        }
     }
 
-    private void WallJump() {
-        //StopCoroutine(DisableMovement(0f));
-        //StartCoroutine(DisableMovement(0.1f));
-
-        Vector2 wallDir = (collisions.right) ? Vector2.left : Vector2.right;
-        Jump(Vector2.up / 1.5f + wallDir / 1.5f);
-
-        wallJumped = true;
+    private void Jump(JumpInfo jumpInfo) {
+        velocity += jumpInfo.direction.normalized * jumpInfo.force;
     }
 
-    IEnumerator DisableMovement(float time) {
+    private void WallJump(float xInput, float wallDirX) {
+
+        JumpInfo jumpInfo;
+
+        if (xInput == wallDirX) {
+            jumpInfo.direction.x = -wallDirX * wallJumpClimb.direction.x;
+            jumpInfo.direction.y = wallJumpClimb.direction.y;
+            jumpInfo.force = wallJumpClimb.force;
+        }
+        else if (xInput == 0) {
+            jumpInfo.direction.x = -wallDirX * wallJumpOff.direction.x;
+            jumpInfo.direction.y = wallJumpOff.direction.y;
+            jumpInfo.force = wallJumpOff.force;
+        }
+        else {
+            jumpInfo.direction.x = -wallDirX * wallLeap.direction.x;
+            jumpInfo.direction.y = wallLeap.direction.y;
+            jumpInfo.force = wallLeap.force;
+        }
+
+        StopCoroutine("DisableFullControl");
+        Jump(jumpInfo);
+        StartCoroutine(DisableFullControl(Time.fixedDeltaTime * frameDelay));
+    }
+
+    IEnumerator DisableInput(float time) {
         canMove = false;
         yield return new WaitForSeconds(time);
         canMove = true;
+    }
+
+    IEnumerator DisableFullControl(float time) {
+        hasFullControl = false;
+        yield return new WaitForSeconds(time);
+        hasFullControl = true;
     }
 
     private void UpdateCollisionInfo() {
@@ -169,13 +284,12 @@ public class PlayerController : MonoBehaviour {
 
     private float MoveHorizontally(float moveDistance) {
         if (moveDistance != 0) {
-            float directionX = Mathf.Sign(moveDistance);
+            float directionX = Math.Sign(moveDistance);
             float rayLength = Mathf.Abs(moveDistance) + skinWidth;
-
 
             for (int i = 0; i < horizontalRayCount; i++) {
                 Vector2 rayOrigin = (directionX == 1) ? raycastOrigins.bottomRight : raycastOrigins.bottomLeft;
-                rayOrigin += i * Vector2.up * verticalRaySpacing;
+                rayOrigin += i * Vector2.up * horizontalRaySpacing;
                 RaycastHit2D hit = Physics2D.Raycast(rayOrigin, Vector2.right * directionX, rayLength, collisionMask);
                 Debug.DrawRay(rayOrigin, Vector2.right * rayLength * directionX, Color.red);
 
@@ -243,5 +357,11 @@ public class PlayerController : MonoBehaviour {
         public bool up, down, left, right;
         public bool OnGround { get { return down; } }
         public bool OnWall { get { return left || right; } }
+    }
+
+    [Serializable]
+    private struct JumpInfo {
+        public Vector2 direction;
+        public float force;
     }
 }
