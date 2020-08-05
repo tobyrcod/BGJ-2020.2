@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Collections;
-using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.UIElements;
 
 public class PlayerController : MonoBehaviour {
 
+    #region variables
     const float skinWidth = 0.015f;
     const float minRayLength = skinWidth * 2;
     const float maxDrag = 10;
@@ -15,11 +12,30 @@ public class PlayerController : MonoBehaviour {
 
     [Space]
 
-    bool wallGrab = false;
-    bool wallSliding = false;
     bool wallSlidingDown = true;
+    bool dashing = false;
+    bool canDash = false;
     bool canMove = true;
     bool hasFullControl = true;
+
+    [Space]
+
+    [Header("Animation Variables")]
+    [SerializeField] bool isWallSliding = false;
+    [SerializeField] bool isGabbingWall = false;
+    [SerializeField] bool isIdle = false;
+    [SerializeField] bool isWalking = false;
+    [SerializeField] bool isJumping = false;
+    [SerializeField] bool isFalling = false;
+
+    public bool IsWallSliding { get => isWallSliding; set => isWallSliding = value; }
+    public bool IsGrabbingWall { get => isGabbingWall; set => isGabbingWall = value; }
+    public bool IsIdle { get => isIdle; set => isIdle = value; }
+    public bool IsWalking { get => isWalking; set => isWalking = value; }
+    public bool IsJumping { get => isJumping; set => isJumping = value; }
+    public bool IsFalling { get => isFalling; set => isFalling = value; }
+
+    [Space]
 
     [SerializeField] float fallMultiplier = 2.5f;
     [SerializeField] float lowJumpMultiplier = 2f;
@@ -27,11 +43,22 @@ public class PlayerController : MonoBehaviour {
     [Space]
 
     [SerializeField] float speed = 10f;
+    [SerializeField] float stopFrames = 3f;
+    [SerializeField] float coyoteFrames = 6f;
+
+    [Space]
+
+    [SerializeField] float dashForce = 50f;
+    [SerializeField] float dashTime = 0.3f;
+    [SerializeField] float dashDrag = 1f;
+    [SerializeField] float dashGravity = 0f;
+    [SerializeField] float disableControlFrameDash = 12f;
 
     [Space]
 
     [SerializeField] float slideDownSpeedMax = 5f;
     [SerializeField] float slideUpSpeedMax = 2.5f;
+    [SerializeField] float slideHoldSpeedMax = 2f;
     [SerializeField] float wallStickTime = 0.25f;
     float timeToWallUnstick;
 
@@ -46,10 +73,11 @@ public class PlayerController : MonoBehaviour {
 
     [SerializeField] float wallLerpSpeed = 10f;
     [SerializeField] float noInputLerpSpeed = 3f;
-    [SerializeField] float frameDelay = 10f;
+    [SerializeField] float disableControlFrameWallJump = 12f;
     [SerializeField] float velXThreshold = 0.05f;
     [SerializeField] [Range(0, 10)] float dragScale;
-    [SerializeField] private Vector2 velocity;
+    [SerializeField] public Vector2 velocity;
+    public Vector2 _velocity { get; private set; }
 
     [Space]
 
@@ -65,6 +93,8 @@ public class PlayerController : MonoBehaviour {
     [SerializeField] CollisionInfo collisions;
     [SerializeField] LayerMask collisionMask;
 
+    #endregion
+
     private void OnValidate() {
         if (hitbox2D == null)
             hitbox2D = GetComponent<BoxCollider2D>();
@@ -74,7 +104,7 @@ public class PlayerController : MonoBehaviour {
         UpdateRaycastOrigins();
         CalculateRaySpacing();
 
-        collisions = new CollisionInfo();
+        collisions = new CollisionInfo(coyoteFrames);
     }
 
     private void FixedUpdate() {
@@ -86,38 +116,75 @@ public class PlayerController : MonoBehaviour {
         int rawY = (int)Input.GetAxisRaw("Vertical");
         float wallDirX = collisions.right ? 1 : -1;
 
-        Vector2 input = new Vector2(x, y);
-        Walk(input, rawX);
 
-        wallSliding = false;
+        Vector2 input = new Vector2(x, y);
+        Vector2Int rawInput = new Vector2Int(rawX, rawY);
+        Walk(input, rawInput);
+
         wallSlidingDown = false;
-        wallGrab = false;
+
+        isWallSliding = false;
+        isGabbingWall = false;
+        isIdle = false;
+        isWalking = false;
+        isJumping = false;
+        isFalling = false;
+
+        if (collisions.OnGround) {
+            if (Mathf.Abs(velocity.x) < velXThreshold && rawX == 0) {
+                isIdle = true;
+            }
+            else {
+                isWalking = true;
+            }
+        }
+        else {
+            if (!collisions.OnWall) {
+                if (velocity.y > 0) {
+                    isJumping = true;
+                }
+                else {
+                    isFalling = true;
+                }
+            }
+        }
+
+        if (collisions.TouchingCeiling) {
+            velocity.y = 0;
+        }
 
         if (collisions.OnGround) {
             velocity.y = 0;
+            canDash = true;
         }
         else {
-            //Apply Gravity
-            velocity.y += gravityScale * Time.fixedDeltaTime;
 
-            //Better Jump Logic
-            if (velocity.y < 0) {
-                velocity.y += gravityScale * Time.fixedDeltaTime * (fallMultiplier - 1);
-            }
-            else if (velocity.y > 0 && !Input.GetKey(KeyCode.Space)) {
-                velocity.y += gravityScale * Time.fixedDeltaTime * (lowJumpMultiplier - 1);
+            if (!dashing) {
+                //Apply Gravity
+                velocity.y += gravityScale * Time.fixedDeltaTime;
+
+                //Better Jump Logic
+                if (velocity.y < 0) {
+                    velocity.y += gravityScale * Time.fixedDeltaTime * (fallMultiplier - 1);
+                }
+                else if (velocity.y > 0 && !Input.GetKey(KeyCode.Space)) {
+                    velocity.y += gravityScale * Time.fixedDeltaTime * (lowJumpMultiplier - 1);
+                }
             }
 
             if (collisions.OnWall) {
 
-                if (Input.GetKey(KeyCode.LeftShift)) {
-                    WallGrab(input.y);
-                }
-
-                if (!wallGrab) {
+                if (!IsGrabbingWall) {
                     //We are sliding on a wall;
                     WallSlide(input.x, wallDirX);
                 }              
+            }
+        }
+
+        if (collisions.OnWall) {
+
+            if (Input.GetKey(KeyCode.LeftShift)) {
+                WallGrab(input.y);
             }
         }
 
@@ -125,18 +192,85 @@ public class PlayerController : MonoBehaviour {
             if (wallSlidingDown) {
                 WallJump(rawX, wallDirX);
             }
-
-            if (collisions.OnGround) {
+            else if (collisions.OnCoyoteGround()) {
                 Jump(standingJump);
+            }           
+        }
+
+        if (Input.GetKeyDown(KeyCode.UpArrow)) {
+            if (canDash) {
+                if (!collisions.OnGround && !collisions.OnWall) {
+                    if (rawX != 0 || rawY != 0) {
+                        Dash(rawX, rawY);
+                    }
+                }
             }
         }
+
+        _velocity = velocity;
 
         Move();
     }
 
+    private void Dash(int rawX, int rawY) {
+        Debug.Log("Dash");
+        dashing = true;
+        canDash = false;
+
+        velocity = Vector2.zero;
+        Vector2 dir = new Vector2(rawX, rawY);
+        velocity += dir.normalized * dashForce;
+
+        StopCoroutine("DisableFullControl");
+        StartCoroutine(DisableFullControl(Time.fixedDeltaTime * disableControlFrameDash));
+
+        StopCoroutine("DashWait");
+        StartCoroutine(DashWait(dashTime));
+
+        StopCoroutine("LerpDragOverTime");
+        StartCoroutine(LerpDragOverTime(dragScale, dragScale, dashTime));
+    }
+
+    IEnumerator DashWait(float time) {
+        float _gravity = gravityScale;
+        gravityScale = dashGravity;
+        dragScale = dashDrag;
+
+        yield return new WaitForSeconds(time);
+
+        gravityScale = _gravity;
+        dashing = false;
+        velocity = Vector2.zero;
+    }
+
+    IEnumerator LerpDragOverTime(float currentDrag, float dragToLose, float duration) {
+        float counter = 0;
+        float startDrag = currentDrag;
+        float endDrag = currentDrag - dragToLose;
+        while (counter < duration) {
+            counter += Time.deltaTime;
+            float newDrag = Mathf.Lerp(startDrag, endDrag, counter / duration);
+            dragScale = newDrag;
+            yield return null;
+        }
+    }
+
+    IEnumerator LerpXVelOverTime(float currentSpeed, float speedToLose, float duration) {
+        float counter = 0;
+        float startSpeed = currentSpeed;
+        float endSpeed = currentSpeed - speedToLose;
+        while (counter < duration) {
+            counter += Time.deltaTime;
+            float newSpeed = Mathf.Lerp(startSpeed, endSpeed, counter / duration);
+            velocity.x = newSpeed;
+            yield return null;
+        }
+    }
+
     private void WallGrab(float moveDir) {
         velocity.y = 0;
-        wallGrab = true;
+        IsGrabbingWall = true;
+        IsWallSliding = false;
         velocity.y = moveDir * speed;
     }
 
@@ -160,20 +294,22 @@ public class PlayerController : MonoBehaviour {
         if (!canMove)
             return;
 
-        wallSliding = true;
+        IsWallSliding = true;
+        //jumping = false;
+        //falling = false;
 
         if (velocity.y < 0) {
             wallSlidingDown = true;
 
-            if (velocity.y < -slideDownSpeedMax) {
-                Debug.Log("Slow Down Speed");
-                velocity.y = -slideDownSpeedMax;
+            float maxSpeed = (xInput != 0 && xInput == wallDirX) ? slideHoldSpeedMax : slideDownSpeedMax;
+
+            if (velocity.y < -maxSpeed) {
+                velocity.y = -maxSpeed;
             }
         }
         else {
 
             if (velocity.y > slideUpSpeedMax) {
-                Debug.Log("Slow Up Speed");
                 velocity.y = slideUpSpeedMax;
             }
         }
@@ -194,23 +330,36 @@ public class PlayerController : MonoBehaviour {
         }
     }
 
-    private void Walk(Vector2 input, int rawX) {
+    private void Walk(Vector2 input, Vector2Int rawInput) {
 
         if (!canMove)
             return;
 
-        if (wallGrab)
+        if (IsGrabbingWall)
             return;
 
         if (hasFullControl) {
-            if (rawX != 0) {
+            if (rawInput.x != 0) {
                 velocity = new Vector2(input.x * speed, velocity.y);
             }
-            else {         
-                velocity = Vector2.Lerp(velocity, new Vector2(0, velocity.y),  (speed - velocity.x + 1) / 7 * Time.fixedDeltaTime);
+            else {
 
-                if (Mathf.Abs(velocity.x) < velXThreshold)
-                    velocity.x = 0;
+                if (collisions.OnGround) {
+                    StopCoroutine("LerpXVelOverTime");
+                    StartCoroutine(LerpXVelOverTime(velocity.x, velocity.x, stopFrames * Time.fixedDeltaTime));
+                }
+                else {
+
+                    velocity = Vector2.Lerp(velocity, new Vector2(0, velocity.y), (speed - velocity.x + 1) / noInputLerpSpeed * Time.fixedDeltaTime);
+
+                    if (Mathf.Abs(velocity.x) < velXThreshold)
+                        velocity.x = 0;
+                }
+            }
+
+            if (rawInput.y == -1) {
+                StopCoroutine("LerpXVelOverTime");
+                StartCoroutine(LerpXVelOverTime(velocity.x, velocity.x, stopFrames * Time.fixedDeltaTime));
             }
         }
         else {
@@ -248,7 +397,7 @@ public class PlayerController : MonoBehaviour {
 
         StopCoroutine("DisableFullControl");
         Jump(jumpInfo);
-        StartCoroutine(DisableFullControl(Time.fixedDeltaTime * frameDelay));
+        StartCoroutine(DisableFullControl(Time.fixedDeltaTime * disableControlFrameWallJump));
     }
 
     IEnumerator DisableInput(float time) {
@@ -276,10 +425,7 @@ public class PlayerController : MonoBehaviour {
         Debug.DrawRay(raycastOrigins.bottomLeft - new Vector2(skinWidth * 2, 0f), Vector2.up * (hitbox2D.bounds.size.x - skinWidth * 2f), Color.blue);
         Debug.DrawRay(raycastOrigins.bottomRight + new Vector2(skinWidth * 2f, 0f), Vector2.up * (hitbox2D.bounds.size.x - skinWidth * 2f), Color.blue);
 
-        collisions.down = hitDown;
-        collisions.up = hitUp;
-        collisions.left = hitLeft;
-        collisions.right = hitRight;
+        collisions.Update(hitUp, hitDown, hitLeft, hitRight);
     }
 
     private float MoveHorizontally(float moveDistance) {
@@ -353,10 +499,44 @@ public class PlayerController : MonoBehaviour {
     }
 
     [Serializable]
-    private struct CollisionInfo {
-        public bool up, down, left, right;
+    private class CollisionInfo {
+        public bool up { get; private set; }
+        public bool down { get; private set; }
+        public bool left { get; private set; }
+        public bool right { get; private set; }
         public bool OnGround { get { return down; } }
+        private float coyoteFrames;
+        private float coyoteCutoff;
+        private bool canCoyoteJump;
+
+        public CollisionInfo(float coyoteFrames) {
+            this.coyoteFrames = coyoteFrames;
+        }
+
+        public bool TouchingCeiling { get { return up; } }
         public bool OnWall { get { return left || right; } }
+
+        public void Update(bool up, bool down, bool left, bool right) {
+            this.up = up;
+            this.left = left;
+            this.right = right;
+
+            if (down && !this.down)
+                canCoyoteJump = true;
+
+            if (this.down && !down)
+                coyoteCutoff = Time.time + Time.fixedDeltaTime * coyoteFrames;
+
+            this.down = down;
+        }
+
+        public bool OnCoyoteGround() {
+            if (canCoyoteJump && (OnGround || Time.time < coyoteCutoff)) {
+                canCoyoteJump = false;
+                return true;
+            }
+            return false;
+        }
     }
 
     [Serializable]
