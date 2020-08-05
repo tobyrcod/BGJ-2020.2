@@ -13,7 +13,6 @@ public class PlayerController : MonoBehaviour {
     [Space]
 
     bool wallSlidingDown = true;
-    bool dashing = false;
     bool canDash = false;
     bool canMove = true;
     bool hasFullControl = true;
@@ -28,12 +27,7 @@ public class PlayerController : MonoBehaviour {
     [SerializeField] bool isJumping = false;
     [SerializeField] bool isFalling = false;
     [SerializeField] bool isAlive = true;
-    bool _isWallSliding = false;
-    bool _isGabbingWall = false;
-    bool _isIdle = false;
-    bool _isWalking = false;
-    bool _isJumping = false;
-    bool _isFalling = false;
+    [SerializeField] bool isDashing = false;
 
     public bool IsWallSliding { get => isWallSliding; set => isWallSliding = value; }
     public bool IsGrabbingWall { get => isGabbingWall; set => isGabbingWall = value; }
@@ -42,6 +36,7 @@ public class PlayerController : MonoBehaviour {
     public bool IsJumping { get => isJumping; set => isJumping = value; }
     public bool IsFalling { get => isFalling; set => isFalling = value; }
     public bool IsAlive { get => isAlive; set => isAlive = value; }
+    public bool IsDashing { get => isDashing; }
     public int WallDirX { get => collisions.wallDirX; }
 
     [Space]
@@ -94,7 +89,9 @@ public class PlayerController : MonoBehaviour {
     [SerializeField] float verticalRayCount = 4f;
     float horizontalRaySpacing, verticalRaySpacing;
 
-    BoxCollider2D hitbox2D;
+    [Space]
+
+    [SerializeField] BoxCollider2D hitbox2D;
     RaycastOrigins raycastOrigins;
 
     [Space] 
@@ -104,11 +101,6 @@ public class PlayerController : MonoBehaviour {
 
     #endregion
 
-    private void OnValidate() {
-        if (hitbox2D == null)
-            hitbox2D = GetComponent<BoxCollider2D>();
-    }
-
     private void Start() {
         UpdateRaycastOrigins();
         CalculateRaySpacing();
@@ -116,39 +108,15 @@ public class PlayerController : MonoBehaviour {
         collisions = new CollisionInfo(coyoteFrames);
     }
 
-    private void Update() {
-        if (Input.GetKeyDown(KeyCode.P)) {
-            if (isAlive) {
+    public void RevivePlayer() {
+        isAlive = true;
+        transform.gameObject.layer = LayerMask.NameToLayer("Player");
+    }
 
-                _isWallSliding = isWallSliding;
-                _isGabbingWall = isGabbingWall;
-                _isIdle = isIdle;
-                _isWalking = isWalking;
-                _isJumping = isJumping;
-                _isFalling = isFalling;
-
-                isWallSliding = false;
-                isGabbingWall = false;
-                isIdle = false;
-                isWalking = false;
-                isJumping = false;
-                isFalling = false;
-                isAlive = false;
-
-                transform.gameObject.layer = LayerMask.NameToLayer("Obstacle");
-            }
-            else {
-                isWallSliding = _isWallSliding;
-                isGabbingWall = _isGabbingWall;
-                isIdle = _isIdle;
-                isWalking = _isWalking;
-                isJumping = _isJumping;
-                isFalling = _isFalling;
-                isAlive = true;
-
-                transform.gameObject.layer = LayerMask.NameToLayer("Player");
-            }
-        }
+    public void KillPlayer() {
+        isAlive = false;
+        velocity = Vector2.zero;
+        transform.gameObject.layer = LayerMask.NameToLayer("Obstacle");
     }
 
     private void FixedUpdate() {
@@ -156,16 +124,16 @@ public class PlayerController : MonoBehaviour {
         if (isAlive) {
             UpdateCollisionInfo();
 
-            float x = Input.GetAxis("Horizontal");
-            float y = Input.GetAxis("Vertical");
+            //float x = Input.GetAxis("Horizontal");
+            //float y = Input.GetAxis("Vertical");
             int rawX = (int)Input.GetAxisRaw("Horizontal");
             int rawY = (int)Input.GetAxisRaw("Vertical");
             float wallDirX = collisions.right ? 1 : -1;
 
 
-            Vector2 input = new Vector2(x, y);
+            //Vector2 input = new Vector2(x, y);
             Vector2Int rawInput = new Vector2Int(rawX, rawY);
-            Walk(input, rawInput);
+            Walk(rawInput, rawInput);
 
             wallSlidingDown = false;
 
@@ -186,11 +154,13 @@ public class PlayerController : MonoBehaviour {
             }
             else {
                 if (!collisions.OnWall) {
-                    if (velocity.y > 0) {
-                        isJumping = true;
-                    }
-                    else {
-                        isFalling = true;
+                    if (!isDashing) {
+                        if (velocity.y > 0) {
+                            isJumping = true;
+                        }
+                        else {
+                            isFalling = true;
+                        }
                     }
                 }
             }
@@ -205,7 +175,7 @@ public class PlayerController : MonoBehaviour {
             }
             else {
 
-                if (!dashing) {
+                if (!isDashing) {
                     //Apply Gravity
                     velocity.y += gravityScale * Time.fixedDeltaTime;
 
@@ -221,8 +191,9 @@ public class PlayerController : MonoBehaviour {
                 if (collisions.OnWall) {
 
                     if (!IsGrabbingWall) {
+
                         //We are sliding on a wall;
-                        WallSlide(input.x, wallDirX);
+                        WallSlide(rawX, wallDirX);
                     }
                 }
             }
@@ -230,7 +201,7 @@ public class PlayerController : MonoBehaviour {
             if (collisions.OnWall) {
 
                 if (Input.GetKey(KeyCode.LeftShift)) {
-                    WallGrab(input.y);
+                    WallGrab(rawInput.y);
                 }
             }
 
@@ -243,7 +214,7 @@ public class PlayerController : MonoBehaviour {
                 }
             }
 
-            if (Input.GetKeyDown(KeyCode.UpArrow)) {
+            if (Input.GetKeyDown(KeyCode.O)) {
                 if (canDash) {
                     if (!collisions.OnGround && !collisions.OnWall) {
                         if (rawX != 0 || rawY != 0) {
@@ -261,15 +232,17 @@ public class PlayerController : MonoBehaviour {
 
     private void Dash(int rawX, int rawY) {
         Debug.Log("Dash");
-        dashing = true;
+        isDashing = true;
         canDash = false;
 
         velocity = Vector2.zero;
         Vector2 dir = new Vector2(rawX, rawY);
-        velocity += dir.normalized * dashForce;
+
+        JumpInfo dashInfo = new JumpInfo(dir, dashForce);
+        Jump(dashInfo);
 
         StopCoroutine("DisableFullControl");
-        StartCoroutine(DisableFullControl(Time.fixedDeltaTime * disableControlFrameDash));
+        StartCoroutine(DisableFullControl(dashTime * 0.8f));
 
         StopCoroutine("DashWait");
         StartCoroutine(DashWait(dashTime));
@@ -286,8 +259,7 @@ public class PlayerController : MonoBehaviour {
         yield return new WaitForSeconds(time);
 
         gravityScale = _gravity;
-        dashing = false;
-        velocity = Vector2.zero;
+        isDashing = false;
     }
 
     IEnumerator LerpDragOverTime(float currentDrag, float dragToLose, float duration) {
@@ -318,6 +290,7 @@ public class PlayerController : MonoBehaviour {
         velocity.y = 0;
         IsGrabbingWall = true;
         IsWallSliding = false;
+        wallSlidingDown = false;
         velocity.y = moveDir * speed;
     }
 
@@ -333,7 +306,7 @@ public class PlayerController : MonoBehaviour {
     }
 
     private Vector2 ApplyDrag(Vector2 velocity) {
-        return velocity *= 1 - dragScale / maxDrag;
+        return velocity *= (1 - dragScale / maxDrag);
     }
 
     private void WallSlide(float xInput, float wallDirX) {
@@ -342,8 +315,6 @@ public class PlayerController : MonoBehaviour {
             return;
 
         IsWallSliding = true;
-        //jumping = false;
-        //falling = false;
 
         if (velocity.y < 0) {
             wallSlidingDown = true;
@@ -387,7 +358,12 @@ public class PlayerController : MonoBehaviour {
 
         if (hasFullControl) {
             if (rawInput.x != 0) {
-                velocity = new Vector2(input.x * speed, velocity.y);
+                if (collisions.OnGround) {
+                    velocity.x = Mathf.Lerp(velocity.x, input.x * speed, 0.6f);
+                }
+                else {
+                    velocity.x = Mathf.Lerp(velocity.x, input.x * speed, 0.1f);
+                }
             }
             else {
 
@@ -398,7 +374,6 @@ public class PlayerController : MonoBehaviour {
                 else {
 
                     velocity = Vector2.Lerp(velocity, new Vector2(0, velocity.y), (speed - velocity.x + 1) / noInputLerpSpeed * Time.fixedDeltaTime);
-
                     if (Mathf.Abs(velocity.x) < velXThreshold)
                         velocity.x = 0;
                 }
@@ -593,5 +568,10 @@ public class PlayerController : MonoBehaviour {
     private struct JumpInfo {
         public Vector2 direction;
         public float force;
+
+        public JumpInfo(Vector2 direction, float force) {
+            this.direction = direction;
+            this.force = force;
+        }
     }
 }

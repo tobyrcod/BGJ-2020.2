@@ -28,62 +28,63 @@ public class PlayerAnimation : MonoBehaviour
         anim.SetBool("Jumping", player.IsJumping);
         anim.SetBool("Falling", player.IsFalling);
         anim.SetBool("Alive", player.IsAlive);
+        anim.SetBool("Dashing", player.IsDashing);
 
+        float animSpeed;
+        AnimInfo[] animInfos;
         if (player.IsAlive) {
-            anim.speed = 1f;
-
-            foreach (AnimInfo bodyPart in PlayerAliveAnimInfo) {
-                if (bodyPart.transform != null) {
-                    bodyPart.transform.rotation = Quaternion.Euler(0.0f, 0.0f, Mathf.Sin(Time.time * bodyPart.RotationSpeed) * bodyPart.RotationRange);
-                }
-
-                if (!_IsAlive) {
-                    if (bodyPart.spriteRenderer != null) {
-                        bodyPart.spriteRenderer.color = bodyPart.color;
-                        if (bodyPart.sprite != null) {
-                            bodyPart.spriteRenderer.sprite = bodyPart.sprite;
-                        }
-                    }
-                }
-            }
-
-            if (player.IsWallSliding || player.IsGrabbingWall) {
-                faceDir = -player.WallDirX;
-            }
-            else {
-                if (player.velocity.x != 0) {
-                    faceDir = Math.Sign(player.velocity.x);
-                }
-                else if (player._velocity.x != 0) {
-                    faceDir = Math.Sign(player._velocity.x);
-                }
-            }
-
-            if (transform.localScale.x != scale * faceDir) {
-                Vector2 newScale = Vector2.Lerp(transform.localScale, new Vector2(scale * faceDir, scale), 0.2f);
-                transform.localScale = newScale;
-            }
+            animSpeed = 1f;
+            animInfos = PlayerAliveAnimInfo;
+            UpdateFaceDir();
         }
         else {
-            anim.speed = 0f;
+            animSpeed = 0f;
+            animInfos = PlayerDeadAnimInfo;
+        }
 
-            foreach (AnimInfo bodyPart in PlayerDeadAnimInfo) {
-                if (bodyPart.transform != null) {
-                    bodyPart.transform.rotation = Quaternion.Euler(0.0f, 0.0f, Mathf.Sin(Time.time * bodyPart.RotationSpeed) * bodyPart.RotationRange);
-                }
+        CustomAnimations(animInfos);
+        RotateToFaceDir();
+        anim.speed = animSpeed;
 
-                if (_IsAlive) {
-                    if (bodyPart.spriteRenderer != null) {
-                        bodyPart.spriteRenderer.color = bodyPart.color;
-                        if (bodyPart.sprite != null) {
-                            bodyPart.spriteRenderer.sprite = bodyPart.sprite;
-                        }
+        _IsAlive = player.IsAlive;
+    }
+
+    private void CustomAnimations(AnimInfo[] animInfos) {
+        foreach (AnimInfo bodyPart in animInfos) {
+            if (bodyPart.transform != null) {
+                bodyPart.transform.rotation = Quaternion.Euler(0.0f, 0.0f, Mathf.Sin(Time.time * bodyPart.RotationSpeed) * bodyPart.RotationRange);
+            }
+
+            if (!_IsAlive) {
+                if (bodyPart.spriteRenderer != null) {
+                    bodyPart.spriteRenderer.color = bodyPart.color;
+                    if (bodyPart.sprite != null) {
+                        bodyPart.spriteRenderer.sprite = bodyPart.sprite;
                     }
                 }
             }
         }
+    }
 
-        _IsAlive = player.IsAlive;
+    private void RotateToFaceDir() {
+        if (transform.localScale.x != scale * faceDir) {
+            Vector2 newScale = Vector2.Lerp(transform.localScale, new Vector2(scale * faceDir, scale), 0.2f);
+            transform.localScale = newScale;
+        }
+    }
+
+    private void UpdateFaceDir() {
+        if (player.IsWallSliding || player.IsGrabbingWall) {
+            faceDir = -player.WallDirX;
+        }
+        else {
+            if (player.velocity.x != 0) {
+                faceDir = Math.Sign(player.velocity.x);
+            }
+            else if (player._velocity.x != 0) {
+                faceDir = Math.Sign(player._velocity.x);
+            }
+        }
     }
 
     [Serializable]
