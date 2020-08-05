@@ -133,7 +133,7 @@ public class PlayerController : MonoBehaviour {
 
             //Vector2 input = new Vector2(x, y);
             Vector2Int rawInput = new Vector2Int(rawX, rawY);
-            Walk(rawInput, rawInput);
+            Walk(rawInput);
 
             wallSlidingDown = false;
 
@@ -218,7 +218,7 @@ public class PlayerController : MonoBehaviour {
                 if (canDash) {
                     if (!collisions.OnGround && !collisions.OnWall) {
                         if (rawX != 0 || rawY != 0) {
-                            Dash(rawX, rawY);
+                            Dash(rawInput);
                         }
                     }
                 }
@@ -230,13 +230,13 @@ public class PlayerController : MonoBehaviour {
         }
     }
 
-    private void Dash(int rawX, int rawY) {
+    private void Dash(Vector2 dir) {
+
         Debug.Log("Dash");
         isDashing = true;
         canDash = false;
 
         velocity = Vector2.zero;
-        Vector2 dir = new Vector2(rawX, rawY);
 
         JumpInfo dashInfo = new JumpInfo(dir, dashForce);
         Jump(dashInfo);
@@ -248,7 +248,7 @@ public class PlayerController : MonoBehaviour {
         StartCoroutine(DashWait(dashTime));
 
         StopCoroutine("LerpDragOverTime");
-        StartCoroutine(LerpDragOverTime(dragScale, dragScale, dashTime));
+        StartCoroutine(LerpDragOverTime(dragScale, dragScale, dashTime));     
     }
 
     IEnumerator DashWait(float time) {
@@ -348,7 +348,7 @@ public class PlayerController : MonoBehaviour {
         }
     }
 
-    private void Walk(Vector2 input, Vector2Int rawInput) {
+    private void Walk(Vector2 rawInput) {
 
         if (!canMove)
             return;
@@ -359,10 +359,10 @@ public class PlayerController : MonoBehaviour {
         if (hasFullControl) {
             if (rawInput.x != 0) {
                 if (collisions.OnGround) {
-                    velocity.x = Mathf.Lerp(velocity.x, input.x * speed, 0.6f);
+                    velocity.x = Mathf.Lerp(velocity.x, rawInput.x * speed, 0.6f);
                 }
                 else {
-                    velocity.x = Mathf.Lerp(velocity.x, input.x * speed, 0.1f);
+                    velocity.x = Mathf.Lerp(velocity.x, rawInput.x * speed, 0.1f);
                 }
             }
             else {
@@ -379,14 +379,16 @@ public class PlayerController : MonoBehaviour {
                 }
             }
 
-            if (rawInput.y == -1) {
-                StopCoroutine("LerpXVelOverTime");
-                StartCoroutine(LerpXVelOverTime(velocity.x, velocity.x, stopFrames * Time.fixedDeltaTime));
+            if (collisions.OnGround) {
+                if (rawInput.y == -1) {
+                    StopCoroutine("LerpXVelOverTime");
+                    StartCoroutine(LerpXVelOverTime(velocity.x, velocity.x, stopFrames * Time.fixedDeltaTime));
+                }
             }
         }
         else {
 
-            velocity = Vector2.Lerp(velocity, new Vector2(input.x * speed, velocity.y), wallLerpSpeed * Time.fixedDeltaTime);
+            velocity = Vector2.Lerp(velocity, new Vector2(rawInput.x * speed, velocity.y), wallLerpSpeed * Time.fixedDeltaTime);
 
             if (Mathf.Abs(velocity.x) < velXThreshold)
                 velocity.x = 0;

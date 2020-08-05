@@ -483,6 +483,7 @@ MonoBehaviour:
   isJumping: 0
   isFalling: 0
   isAlive: 1
+  isDashing: 0
   fallMultiplier: 3
   lowJumpMultiplier: 4
   speed: 8

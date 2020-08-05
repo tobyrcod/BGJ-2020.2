@@ -8,6 +8,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] Transform playerParent;
     [SerializeField] GameObject playerPrefab;
     [SerializeField] int maxPlayerCount;
+    [SerializeField] Transform activeCamera;
     private int activePlayerIndex;
     private List<PlayerController> players = new List<PlayerController>();
 
@@ -28,6 +29,10 @@ public class GameManager : MonoBehaviour
                 players[activePlayerIndex].RevivePlayer();
             }
         }
+
+        //Seb Camera Follow
+        Vector2 activePlayerPos = players[activePlayerIndex].transform.position;
+        activeCamera.position = new Vector3(activePlayerPos.x, activePlayerPos.y, activeCamera.position.z);
     }
 
     private void CreateNewPlayer() {
