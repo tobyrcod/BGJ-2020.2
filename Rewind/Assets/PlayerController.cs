@@ -27,6 +27,13 @@ public class PlayerController : MonoBehaviour {
     [SerializeField] bool isWalking = false;
     [SerializeField] bool isJumping = false;
     [SerializeField] bool isFalling = false;
+    [SerializeField] bool isAlive = true;
+    bool _isWallSliding = false;
+    bool _isGabbingWall = false;
+    bool _isIdle = false;
+    bool _isWalking = false;
+    bool _isJumping = false;
+    bool _isFalling = false;
 
     public bool IsWallSliding { get => isWallSliding; set => isWallSliding = value; }
     public bool IsGrabbingWall { get => isGabbingWall; set => isGabbingWall = value; }
@@ -34,6 +41,8 @@ public class PlayerController : MonoBehaviour {
     public bool IsWalking { get => isWalking; set => isWalking = value; }
     public bool IsJumping { get => isJumping; set => isJumping = value; }
     public bool IsFalling { get => isFalling; set => isFalling = value; }
+    public bool IsAlive { get => isAlive; set => isAlive = value; }
+    public int WallDirX { get => collisions.wallDirX; }
 
     [Space]
 
@@ -107,109 +116,147 @@ public class PlayerController : MonoBehaviour {
         collisions = new CollisionInfo(coyoteFrames);
     }
 
-    private void FixedUpdate() {
-        UpdateCollisionInfo();
+    private void Update() {
+        if (Input.GetKeyDown(KeyCode.P)) {
+            if (isAlive) {
 
-        float x = Input.GetAxis("Horizontal");
-        float y = Input.GetAxis("Vertical");
-        int rawX = (int)Input.GetAxisRaw("Horizontal");
-        int rawY = (int)Input.GetAxisRaw("Vertical");
-        float wallDirX = collisions.right ? 1 : -1;
+                _isWallSliding = isWallSliding;
+                _isGabbingWall = isGabbingWall;
+                _isIdle = isIdle;
+                _isWalking = isWalking;
+                _isJumping = isJumping;
+                _isFalling = isFalling;
 
+                isWallSliding = false;
+                isGabbingWall = false;
+                isIdle = false;
+                isWalking = false;
+                isJumping = false;
+                isFalling = false;
+                isAlive = false;
 
-        Vector2 input = new Vector2(x, y);
-        Vector2Int rawInput = new Vector2Int(rawX, rawY);
-        Walk(input, rawInput);
-
-        wallSlidingDown = false;
-
-        isWallSliding = false;
-        isGabbingWall = false;
-        isIdle = false;
-        isWalking = false;
-        isJumping = false;
-        isFalling = false;
-
-        if (collisions.OnGround) {
-            if (Mathf.Abs(velocity.x) < velXThreshold && rawX == 0) {
-                isIdle = true;
+                transform.gameObject.layer = LayerMask.NameToLayer("Obstacle");
             }
             else {
-                isWalking = true;
+                isWallSliding = _isWallSliding;
+                isGabbingWall = _isGabbingWall;
+                isIdle = _isIdle;
+                isWalking = _isWalking;
+                isJumping = _isJumping;
+                isFalling = _isFalling;
+                isAlive = true;
+
+                transform.gameObject.layer = LayerMask.NameToLayer("Player");
             }
         }
-        else {
-            if (!collisions.OnWall) {
-                if (velocity.y > 0) {
-                    isJumping = true;
+    }
+
+    private void FixedUpdate() {
+
+        if (isAlive) {
+            UpdateCollisionInfo();
+
+            float x = Input.GetAxis("Horizontal");
+            float y = Input.GetAxis("Vertical");
+            int rawX = (int)Input.GetAxisRaw("Horizontal");
+            int rawY = (int)Input.GetAxisRaw("Vertical");
+            float wallDirX = collisions.right ? 1 : -1;
+
+
+            Vector2 input = new Vector2(x, y);
+            Vector2Int rawInput = new Vector2Int(rawX, rawY);
+            Walk(input, rawInput);
+
+            wallSlidingDown = false;
+
+            isWallSliding = false;
+            isGabbingWall = false;
+            isIdle = false;
+            isWalking = false;
+            isJumping = false;
+            isFalling = false;
+
+            if (collisions.OnGround) {
+                if (Mathf.Abs(velocity.x) < velXThreshold && rawX == 0) {
+                    isIdle = true;
                 }
                 else {
-                    isFalling = true;
+                    isWalking = true;
                 }
             }
-        }
-
-        if (collisions.TouchingCeiling) {
-            velocity.y = 0;
-        }
-
-        if (collisions.OnGround) {
-            velocity.y = 0;
-            canDash = true;
-        }
-        else {
-
-            if (!dashing) {
-                //Apply Gravity
-                velocity.y += gravityScale * Time.fixedDeltaTime;
-
-                //Better Jump Logic
-                if (velocity.y < 0) {
-                    velocity.y += gravityScale * Time.fixedDeltaTime * (fallMultiplier - 1);
+            else {
+                if (!collisions.OnWall) {
+                    if (velocity.y > 0) {
+                        isJumping = true;
+                    }
+                    else {
+                        isFalling = true;
+                    }
                 }
-                else if (velocity.y > 0 && !Input.GetKey(KeyCode.Space)) {
-                    velocity.y += gravityScale * Time.fixedDeltaTime * (lowJumpMultiplier - 1);
+            }
+
+            if (collisions.TouchingCeiling) {
+                velocity.y = 0;
+            }
+
+            if (collisions.OnGround) {
+                velocity.y = 0;
+                canDash = true;
+            }
+            else {
+
+                if (!dashing) {
+                    //Apply Gravity
+                    velocity.y += gravityScale * Time.fixedDeltaTime;
+
+                    //Better Jump Logic
+                    if (velocity.y < 0) {
+                        velocity.y += gravityScale * Time.fixedDeltaTime * (fallMultiplier - 1);
+                    }
+                    else if (velocity.y > 0 && !Input.GetKey(KeyCode.Space)) {
+                        velocity.y += gravityScale * Time.fixedDeltaTime * (lowJumpMultiplier - 1);
+                    }
+                }
+
+                if (collisions.OnWall) {
+
+                    if (!IsGrabbingWall) {
+                        //We are sliding on a wall;
+                        WallSlide(input.x, wallDirX);
+                    }
                 }
             }
 
             if (collisions.OnWall) {
 
-                if (!IsGrabbingWall) {
-                    //We are sliding on a wall;
-                    WallSlide(input.x, wallDirX);
-                }              
+                if (Input.GetKey(KeyCode.LeftShift)) {
+                    WallGrab(input.y);
+                }
             }
-        }
 
-        if (collisions.OnWall) {
-
-            if (Input.GetKey(KeyCode.LeftShift)) {
-                WallGrab(input.y);
+            if (Input.GetKeyDown(KeyCode.Space)) {
+                if (wallSlidingDown) {
+                    WallJump(rawX, wallDirX);
+                }
+                else if (collisions.OnCoyoteGround()) {
+                    Jump(standingJump);
+                }
             }
-        }
 
-        if (Input.GetKeyDown(KeyCode.Space)) {
-            if (wallSlidingDown) {
-                WallJump(rawX, wallDirX);
-            }
-            else if (collisions.OnCoyoteGround()) {
-                Jump(standingJump);
-            }           
-        }
-
-        if (Input.GetKeyDown(KeyCode.UpArrow)) {
-            if (canDash) {
-                if (!collisions.OnGround && !collisions.OnWall) {
-                    if (rawX != 0 || rawY != 0) {
-                        Dash(rawX, rawY);
+            if (Input.GetKeyDown(KeyCode.UpArrow)) {
+                if (canDash) {
+                    if (!collisions.OnGround && !collisions.OnWall) {
+                        if (rawX != 0 || rawY != 0) {
+                            Dash(rawX, rawY);
+                        }
                     }
                 }
             }
+
+            _velocity = velocity;
+
+            Move();
         }
-
-        _velocity = velocity;
-
-        Move();
     }
 
     private void Dash(int rawX, int rawY) {
@@ -415,22 +462,22 @@ public class PlayerController : MonoBehaviour {
     private void UpdateCollisionInfo() {
         UpdateRaycastOrigins();
 
-        RaycastHit2D hitUp = Physics2D.Raycast(raycastOrigins.topLeft + new Vector2(0f, skinWidth * 2f), Vector2.right, (hitbox2D.bounds.size.y - skinWidth * 2f), collisionMask);
-        RaycastHit2D hitDown = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(0f, skinWidth * 2f), Vector2.right, (hitbox2D.bounds.size.y - skinWidth * 2f), collisionMask);
-        RaycastHit2D hitLeft = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(skinWidth * 2, 0f), Vector2.up, (hitbox2D.bounds.size.x - skinWidth * 2f), collisionMask);
-        RaycastHit2D hitRight = Physics2D.Raycast(raycastOrigins.bottomRight + new Vector2(skinWidth * 2f, 0f), Vector2.up, (hitbox2D.bounds.size.x - skinWidth * 2f), collisionMask);
+        RaycastHit2D hitUp = Physics2D.Raycast(raycastOrigins.topLeft + new Vector2(0f, skinWidth * 2f), Vector2.right, (hitbox2D.bounds.size.x - skinWidth * 2f), collisionMask);
+        RaycastHit2D hitDown = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(0f, skinWidth * 2f), Vector2.right, (hitbox2D.bounds.size.x - skinWidth * 2f), collisionMask);
+        RaycastHit2D hitLeft = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(skinWidth * 2, 0f), Vector2.up, (hitbox2D.bounds.size.y - skinWidth * 2f), collisionMask);
+        RaycastHit2D hitRight = Physics2D.Raycast(raycastOrigins.bottomRight + new Vector2(skinWidth * 2f, 0f), Vector2.up, (hitbox2D.bounds.size.y - skinWidth * 2f), collisionMask);
 
-        Debug.DrawRay(raycastOrigins.topLeft + new Vector2(0f, skinWidth * 2f), Vector2.right * (hitbox2D.bounds.size.y - skinWidth * 2f), Color.blue);
-        Debug.DrawRay(raycastOrigins.bottomLeft - new Vector2(0f, skinWidth * 2f), Vector2.right * (hitbox2D.bounds.size.y - skinWidth * 2f), Color.blue);
-        Debug.DrawRay(raycastOrigins.bottomLeft - new Vector2(skinWidth * 2, 0f), Vector2.up * (hitbox2D.bounds.size.x - skinWidth * 2f), Color.blue);
-        Debug.DrawRay(raycastOrigins.bottomRight + new Vector2(skinWidth * 2f, 0f), Vector2.up * (hitbox2D.bounds.size.x - skinWidth * 2f), Color.blue);
+        Debug.DrawRay(raycastOrigins.topLeft + new Vector2(0f, skinWidth * 2f), Vector2.right * (hitbox2D.bounds.size.x - skinWidth * 2f), Color.blue);
+        Debug.DrawRay(raycastOrigins.bottomLeft - new Vector2(0f, skinWidth * 2f), Vector2.right * (hitbox2D.bounds.size.x - skinWidth * 2f), Color.blue);
+        Debug.DrawRay(raycastOrigins.bottomLeft - new Vector2(skinWidth * 2, 0f), Vector2.up * (hitbox2D.bounds.size.y - skinWidth * 2f), Color.blue);
+        Debug.DrawRay(raycastOrigins.bottomRight + new Vector2(skinWidth * 2f, 0f), Vector2.up * (hitbox2D.bounds.size.y - skinWidth * 2f), Color.blue);
 
         collisions.Update(hitUp, hitDown, hitLeft, hitRight);
     }
 
     private float MoveHorizontally(float moveDistance) {
         if (moveDistance != 0) {
-            float directionX = Math.Sign(moveDistance);
+            int directionX = Math.Sign(moveDistance);
             float rayLength = Mathf.Abs(moveDistance) + skinWidth;
 
             for (int i = 0; i < horizontalRayCount; i++) {
@@ -442,6 +489,8 @@ public class PlayerController : MonoBehaviour {
                 if (hit) {
                     moveDistance = (hit.distance - skinWidth) * directionX;
                     rayLength = hit.distance;
+
+                    collisions.wallDirX = directionX;
                 }
             }
             return moveDistance;
@@ -508,6 +557,7 @@ public class PlayerController : MonoBehaviour {
         private float coyoteFrames;
         private float coyoteCutoff;
         private bool canCoyoteJump;
+        internal int wallDirX;
 
         public CollisionInfo(float coyoteFrames) {
             this.coyoteFrames = coyoteFrames;
