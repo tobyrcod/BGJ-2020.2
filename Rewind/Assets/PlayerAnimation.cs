@@ -19,34 +19,42 @@ public class PlayerAnimation : MonoBehaviour
     int faceDir = 1;
     bool _IsAlive = true;
 
+    private void Start() {
+        if (anim == null) {
+            anim = GetComponent<Animator>();
+        }
+    }
+
     private void Update() {
 
-        anim.SetBool("WallSliding", player.IsWallSliding);
-        anim.SetBool("GrabbingWall", player.IsGrabbingWall);
-        anim.SetBool("Idle", player.IsIdle);
-        anim.SetBool("Walking", player.IsWalking);
-        anim.SetBool("Jumping", player.IsJumping);
-        anim.SetBool("Falling", player.IsFalling);
-        anim.SetBool("Alive", player.IsAlive);
-        anim.SetBool("Dashing", player.IsDashing);
+        if (anim != null) {
+            anim.SetBool("WallSliding", player.IsWallSliding);
+            anim.SetBool("GrabbingWall", player.IsGrabbingWall);
+            anim.SetBool("Idle", player.IsIdle);
+            anim.SetBool("Walking", player.IsWalking);
+            anim.SetBool("Jumping", player.IsJumping);
+            anim.SetBool("Falling", player.IsFalling);
+            anim.SetBool("Alive", player.IsAlive);
+            anim.SetBool("Dashing", player.IsDashing);
 
-        float animSpeed;
-        AnimInfo[] animInfos;
-        if (player.IsAlive) {
-            animSpeed = 1f;
-            animInfos = PlayerAliveAnimInfo;
-            UpdateFaceDir();
+            float animSpeed;
+            AnimInfo[] animInfos;
+            if (player.IsAlive) {
+                animSpeed = 1f;
+                animInfos = PlayerAliveAnimInfo;
+                UpdateFaceDir();
+            }
+            else {
+                animSpeed = 0f;
+                animInfos = PlayerDeadAnimInfo;
+            }
+
+            CustomAnimations(animInfos);
+            RotateToFaceDir();
+            anim.speed = animSpeed;
+
+            _IsAlive = player.IsAlive;
         }
-        else {
-            animSpeed = 0f;
-            animInfos = PlayerDeadAnimInfo;
-        }
-
-        CustomAnimations(animInfos);
-        RotateToFaceDir();
-        anim.speed = animSpeed;
-
-        _IsAlive = player.IsAlive;
     }
 
     private void CustomAnimations(AnimInfo[] animInfos) {
@@ -85,17 +93,5 @@ public class PlayerAnimation : MonoBehaviour
                 faceDir = Math.Sign(player._velocity.x);
             }
         }
-    }
-
-    [Serializable]
-    struct AnimInfo {
-        public Transform transform;
-        public float RotationSpeed, RotationRange;
-
-        [Space]
-
-        public SpriteRenderer spriteRenderer;
-        public Color color;
-        public Sprite sprite;
     }
 }

@@ -3,7 +3,8 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - Enemy
   layers:
   - Default
   - TransparentFX
@@ -15,9 +16,9 @@ TagManager:
   - 
   - Obstacle
   - Player
-  - 
-  - 
-  - 
+  - Collectable
+  - Kill Zone
+  - PostProcessing
   - 
   - 
   - 
@@ -38,9 +39,24 @@ TagManager:
   - 
   - 
   m_SortingLayers:
+  - name: Background
+    uniqueID: 3116779295
+    locked: 0
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: Collectable
+    uniqueID: 207339353
+    locked: 0
+  - name: Enemy
+    uniqueID: 2404019017
+    locked: 0
+  - name: Bullet
+    uniqueID: 1374372609
+    locked: 0
   - name: Player
     uniqueID: 1751810935
+    locked: 0
+  - name: UI
+    uniqueID: 1037708967
     locked: 0

@@ -1,14 +1,19 @@
-﻿using System;
+﻿using Boo.Lang;
+using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
-public class PlayerController : MonoBehaviour {
+public class PlayerController : SpawnItem {
 
     #region variables
     const float skinWidth = 0.015f;
     const float minRayLength = skinWidth * 2;
     const float maxDrag = 10;
     [SerializeField] float gravityScale = -9.8f;
+
+    public Action<int> OnScoreChangedEvent;
 
     [Space]
 
@@ -98,6 +103,8 @@ public class PlayerController : MonoBehaviour {
 
     [SerializeField] CollisionInfo collisions;
     [SerializeField] LayerMask collisionMask;
+    [SerializeField] LayerMask collectableMask;
+    [SerializeField] LayerMask killZoneMask;
 
     #endregion
 
@@ -109,14 +116,31 @@ public class PlayerController : MonoBehaviour {
     }
 
     public void RevivePlayer() {
+
+        GameManager.instance.alivePlayers.Add(this);
+        GameManager.instance.killedPlayers.Remove(this);
+
         isAlive = true;
         transform.gameObject.layer = LayerMask.NameToLayer("Player");
     }
 
     public void KillPlayer() {
+
+        GameManager.instance.alivePlayers.Remove(this);
+        GameManager.instance.killedPlayers.Add(this);
+
         isAlive = false;
         velocity = Vector2.zero;
         transform.gameObject.layer = LayerMask.NameToLayer("Obstacle");
+    }
+
+    public void DestroyPlayer() {
+        GameManager.instance.DestroyPlayer(this);
+    }
+
+    public void PlayerHit() {
+        IncreaseScore(-50);
+        DestroyPlayer();
     }
 
     private void FixedUpdate() {
@@ -214,7 +238,7 @@ public class PlayerController : MonoBehaviour {
                 }
             }
 
-            if (Input.GetKeyDown(KeyCode.O)) {
+            if (Input.GetMouseButtonDown(0)) {
                 if (canDash) {
                     if (!collisions.OnGround && !collisions.OnWall) {
                         if (rawX != 0 || rawY != 0) {
@@ -255,6 +279,7 @@ public class PlayerController : MonoBehaviour {
         float _gravity = gravityScale;
         gravityScale = dashGravity;
         dragScale = dashDrag;
+        GameManager.instance.ScreenShake();
 
         yield return new WaitForSeconds(time);
 
@@ -444,12 +469,57 @@ public class PlayerController : MonoBehaviour {
         RaycastHit2D hitLeft = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(skinWidth * 2, 0f), Vector2.up, (hitbox2D.bounds.size.y - skinWidth * 2f), collisionMask);
         RaycastHit2D hitRight = Physics2D.Raycast(raycastOrigins.bottomRight + new Vector2(skinWidth * 2f, 0f), Vector2.up, (hitbox2D.bounds.size.y - skinWidth * 2f), collisionMask);
 
-        Debug.DrawRay(raycastOrigins.topLeft + new Vector2(0f, skinWidth * 2f), Vector2.right * (hitbox2D.bounds.size.x - skinWidth * 2f), Color.blue);
-        Debug.DrawRay(raycastOrigins.bottomLeft - new Vector2(0f, skinWidth * 2f), Vector2.right * (hitbox2D.bounds.size.x - skinWidth * 2f), Color.blue);
-        Debug.DrawRay(raycastOrigins.bottomLeft - new Vector2(skinWidth * 2, 0f), Vector2.up * (hitbox2D.bounds.size.y - skinWidth * 2f), Color.blue);
-        Debug.DrawRay(raycastOrigins.bottomRight + new Vector2(skinWidth * 2f, 0f), Vector2.up * (hitbox2D.bounds.size.y - skinWidth * 2f), Color.blue);
+        RaycastHit2D obstacleUp = Physics2D.Raycast(raycastOrigins.topLeft + new Vector2(0f, skinWidth * 2f), Vector2.right, (hitbox2D.bounds.size.x - skinWidth * 2f), collectableMask);
+        RaycastHit2D obstacleDown = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(0f, skinWidth * 2f), Vector2.right, (hitbox2D.bounds.size.x - skinWidth * 2f), collectableMask);
+        RaycastHit2D obstacleLeft = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(skinWidth * 2, 0f), Vector2.up, (hitbox2D.bounds.size.y - skinWidth * 2f), collectableMask);
+        RaycastHit2D obstacleRight = Physics2D.Raycast(raycastOrigins.bottomRight + new Vector2(skinWidth * 2f, 0f), Vector2.up, (hitbox2D.bounds.size.y - skinWidth * 2f), collectableMask);
+
+        RaycastHit2D killZoneDown = Physics2D.Raycast(raycastOrigins.bottomLeft - new Vector2(0f, skinWidth * 2f), Vector2.right, (hitbox2D.bounds.size.x - skinWidth * 2f), killZoneMask);
 
         collisions.Update(hitUp, hitDown, hitLeft, hitRight);
+        CheckForCollectables(obstacleUp, obstacleDown, obstacleLeft, obstacleRight);
+        CheckForKillZone(killZoneDown);
+    }
+
+    private void CheckForKillZone(params RaycastHit2D[] hits) {
+        for (int i = 0; i < hits.Length; i++) {
+            if (hits[i]) {
+                DestroyPlayer();
+            }
+        }
+    }
+
+    private void CheckForCollectables(params RaycastHit2D[] hits) {
+        System.Collections.Generic.List<Collectable> collectables = new System.Collections.Generic.List<Collectable>();
+        for (int i = 0; i < hits.Length; i++) {
+            if (hits[i]) {
+                Collectable collectable = hits[i].transform.GetComponent<Collectable>();
+                collectables.Add(collectable);
+            }
+        }
+
+        foreach (Collectable collectable in collectables.Distinct(new CollectableComparer()).ToList()) {
+            ApplyCollectable(collectable);
+        }
+    }
+
+    class CollectableComparer : IEqualityComparer<Collectable> {
+        public bool Equals(Collectable x, Collectable y) {
+            return x.collectableName == y.collectableName;
+        }
+
+        public int GetHashCode(Collectable obj) {
+            return obj.GetInstanceID().GetHashCode();
+        }
+    }
+
+
+    private void ApplyCollectable(Collectable collectable) {
+        collectable.Collect(this);
+    }
+
+    public void IncreaseScore(int score) {
+        OnScoreChangedEvent?.Invoke(score);
     }
 
     private float MoveHorizontally(float moveDistance) {
@@ -520,10 +590,6 @@ public class PlayerController : MonoBehaviour {
         verticalRaySpacing = bounds.size.x / (verticalRayCount - 1);
     }
 
-    private struct RaycastOrigins {
-        public Vector2 bottomLeft, bottomRight, topLeft, topRight;
-    }
-
     [Serializable]
     private class CollisionInfo {
         public bool up { get; private set; }
@@ -577,3 +643,8 @@ public class PlayerController : MonoBehaviour {
         }
     }
 }
+
+public struct RaycastOrigins {
+    public Vector2 bottomLeft, bottomRight, topLeft, topRight;
+}
+
