@@ -117,30 +117,28 @@ public class PlayerController : SpawnItem {
 
     public void RevivePlayer() {
 
-        GameManager.instance.alivePlayers.Add(this);
-        GameManager.instance.killedPlayers.Remove(this);
+        GameManager.instance.frozenPlayers.Remove(this);
 
         isAlive = true;
         transform.gameObject.layer = LayerMask.NameToLayer("Player");
     }
 
-    public void KillPlayer() {
-
-        GameManager.instance.alivePlayers.Remove(this);
-        GameManager.instance.killedPlayers.Add(this);
+    public void FreezePlayer() {
+        Debug.Log("Freeze");
+        GameManager.instance.frozenPlayers.Add(this);
 
         isAlive = false;
         velocity = Vector2.zero;
         transform.gameObject.layer = LayerMask.NameToLayer("Obstacle");
     }
 
-    public void DestroyPlayer() {
-        GameManager.instance.DestroyPlayer(this);
+    public void DestroyActivePlayer() {
+        GameManager.instance.DestroyActivePlayer();
     }
 
     public void PlayerHit() {
         IncreaseScore(-50);
-        DestroyPlayer();
+        DestroyActivePlayer();
     }
 
     private void FixedUpdate() {
@@ -238,7 +236,7 @@ public class PlayerController : SpawnItem {
                 }
             }
 
-            if (Input.GetMouseButtonDown(0)) {
+            if (Input.GetKeyDown(KeyCode.I)) {
                 if (canDash) {
                     if (!collisions.OnGround && !collisions.OnWall) {
                         if (rawX != 0 || rawY != 0) {
@@ -484,7 +482,7 @@ public class PlayerController : SpawnItem {
     private void CheckForKillZone(params RaycastHit2D[] hits) {
         for (int i = 0; i < hits.Length; i++) {
             if (hits[i]) {
-                DestroyPlayer();
+                DestroyActivePlayer();
             }
         }
     }

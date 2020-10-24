@@ -34,21 +34,20 @@ public class GameManager : MonoBehaviour {
     [SerializeField] Text gameOverScoreUI;
     [SerializeField] GameObject scoreUICanvas;
     [SerializeField] GameObject camRig;
- 
-    private int activePlayerIndex;
-    [SerializeField] public List<PlayerController> players = new List<PlayerController>();
-    [SerializeField] public List<PlayerController> alivePlayers = new List<PlayerController>();
-    [SerializeField] public List<PlayerController> killedPlayers = new List<PlayerController>();
-    [SerializeField] public List<PlayerController> destroyedPlayers = new List<PlayerController>();
+
+    [SerializeField] PlayerController activePlayer;
+    [SerializeField] public List<PlayerController> frozenPlayers = new List<PlayerController>();
+
     private int totalScore = 0;
     private int spawnedPlayers = 0;
+    private int destroyedPlayersCount = 0;
 
     private void Start() {
         if (instance == null)
             instance = this;
 
         miscSpawnPrefabsList = new WeightedList(miscSpawnPrefabs);
-        CreateNewPlayer();
+        activePlayer = CreateNewPlayer();
         StartCoroutine(SpawnMisc(2f));
     }
 
@@ -65,23 +64,16 @@ public class GameManager : MonoBehaviour {
 
     private void Update() {
         if (isGamePlaying) {
-            if (Input.GetMouseButtonDown(1)) {
+            if (Input.GetKeyDown(KeyCode.O)) {
                 if (spawnedPlayers < maxPlayerCount) {
-                    players[activePlayerIndex].KillPlayer();
-                    CreateNewPlayer();
+                    activePlayer.FreezePlayer();
+                    activePlayer = CreateNewPlayer();
                 }
                 else {
-                    if (killedPlayers.Count > 0) {
-                        players[activePlayerIndex].KillPlayer();
-                        activePlayerIndex++;
-                        activePlayerIndex %= maxPlayerCount;
-
-                        if (players[activePlayerIndex] == null) {
-                            activePlayerIndex++;
-                            activePlayerIndex %= maxPlayerCount;
-                        }
-
-                        players[activePlayerIndex].RevivePlayer();
+                    if (frozenPlayers.Count > 0) {
+                        activePlayer.FreezePlayer();
+                        activePlayer = frozenPlayers[0];
+                        activePlayer.RevivePlayer();
                     }
                 }
             }
@@ -94,43 +86,40 @@ public class GameManager : MonoBehaviour {
     }
 
     public Vector2 GetActivePlayerPosition() {
-        if (players[activePlayerIndex] != null)
-            return players[activePlayerIndex].transform.position;
+        if (activePlayer != null)
+            return activePlayer.transform.position;
 
         return Vector2.zero;
     }
 
-    private void CreateNewPlayer() {
-        activePlayerIndex = players.Count;
+    private PlayerController CreateNewPlayer() {
         PlayerController newPlayer = InstantiateNewPlayer();
         newPlayer.OnScoreChangedEvent += ScoreChanged;
-        players.Add(newPlayer);
-        alivePlayers.Add(newPlayer);
+        newPlayer.gameObject.name = $"Player{spawnedPlayers}";
         spawnedPlayers++;
+
+        return newPlayer;
     }
 
-    internal void DestroyPlayer(PlayerController playerController) {
-        destroyedPlayers.Add(playerController);
-        alivePlayers.Remove(playerController);
-
-        Destroy(playerController.gameObject);
-        activePlayerIndex = 0;
-
-        clonesUI.text = (3 - destroyedPlayers.Count).ToString();
+    internal void DestroyActivePlayer() {
+        destroyedPlayersCount++;
+        Destroy(activePlayer.gameObject);
+        clonesUI.text = (3 - destroyedPlayersCount).ToString();
 
         CheckForEndOfGame();
     }
 
     private void CheckForEndOfGame() {
-        if (killedPlayers.Count > 0) {
-            killedPlayers[0].RevivePlayer();
+        if (destroyedPlayersCount >= maxPlayerCount) {
+            GameOver();
         }
         else {
-            if (spawnedPlayers >= maxPlayerCount) {
-                GameOver();
+            if (frozenPlayers.Count > 0) {
+                activePlayer = frozenPlayers[0];
+                activePlayer.RevivePlayer();
             }
             else {
-                CreateNewPlayer();
+                GameOver();
             }
         }
     }

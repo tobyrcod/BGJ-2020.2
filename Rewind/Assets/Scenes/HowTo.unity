@@ -1017,7 +1017,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -308.8, y: 103.999985}
+  m_AnchoredPosition: {x: -356, y: 103.999985}
   m_SizeDelta: {x: 258.33313, y: 51.944466}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &619104617
@@ -1039,7 +1039,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: '[Left Mouse]:'
+  m_text: '[I]:'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c1890c27169747d49a7c1910ce24c9be, type: 2}
   m_sharedMaterial: {fileID: 2613488058924661334, guid: c1890c27169747d49a7c1910ce24c9be,
@@ -1075,7 +1075,7 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_textAlignment: 257
+  m_textAlignment: 260
   m_characterSpacing: 0
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -1109,10 +1109,10 @@ MonoBehaviour:
   m_margin: {x: -221.66577, y: 0, z: -23.333279, w: 0}
   m_textInfo:
     textComponent: {fileID: 619104617}
-    characterCount: 13
+    characterCount: 4
     spriteCount: 0
-    spaceCount: 1
-    wordCount: 2
+    spaceCount: 0
+    wordCount: 1
     linkCount: 0
     lineCount: 1
     pageCount: 1
@@ -2600,7 +2600,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -308.8, y: 17}
+  m_AnchoredPosition: {x: -350, y: 17}
   m_SizeDelta: {x: 258.33313, y: 51.944466}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1157918034
@@ -2622,7 +2622,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: '[Right Mouse]:'
+  m_text: '[O]:'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c1890c27169747d49a7c1910ce24c9be, type: 2}
   m_sharedMaterial: {fileID: 2613488058924661334, guid: c1890c27169747d49a7c1910ce24c9be,
@@ -2658,7 +2658,7 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_textAlignment: 257
+  m_textAlignment: 260
   m_characterSpacing: 0
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -2692,10 +2692,10 @@ MonoBehaviour:
   m_margin: {x: -256.66565, y: 0, z: -23.333279, w: 0}
   m_textInfo:
     textComponent: {fileID: 1157918034}
-    characterCount: 14
+    characterCount: 4
     spriteCount: 0
-    spaceCount: 1
-    wordCount: 2
+    spaceCount: 0
+    wordCount: 1
     linkCount: 0
     lineCount: 1
     pageCount: 1
@@ -7094,7 +7094,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: cant kill whats already frozen is space and time, right?
+  m_text: cant kill whats already frozen in space and time, right?
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c1890c27169747d49a7c1910ce24c9be, type: 2}
   m_sharedMaterial: {fileID: 2613488058924661334, guid: c1890c27169747d49a7c1910ce24c9be,
